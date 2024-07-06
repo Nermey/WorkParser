@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  db_vacancy:
+    container_name: vacancy_db
+    restart: always # перезапуск в случае ошибок
+    image: postgres:15.2
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_VACANCY_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_VACANCY_PASSWORD}
+      POSTGRES_DB: db_vacancy
+    volumes:
+      - ./postgres_data_vacancy:/var/lib/postgresql/data/
+    ports:
+      - ${POSTGRES_VACANCY_PORT}:${POSTGRES_VACANCY_PORT}
+    expose:
+      - ${POSTGRES_VACANCY_PORT}
+    command:
+      - "postgres"
+      - "-c"
+      - "port=${POSTGRES_VACANCY_PORT}"
+    networks:
+      - db
+
+  vacancy_server:
+    build:
+      context: ./vacancy
+      dockerfile: Dockerfile
+    container_name: vacancy_server
+    env_file:
+      - .env
+    ports:
+      - ${VACANCY_SERVICE_PORT}:${VACANCY_SERVICE_PORT}
+    depends_on:
+      - db_vacancy
+    networks:
+      - db
+      - bot
+
+
+  tg_bot:
+    build:
+      context: ./tg_bot
+    container_name: tg_bot
+    env_file:
+      - .env
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+    volumes:
+      - .:/app
+    depends_on:
+      - db_vacancy
+      - vacancy_server
+    networks:
+      - bot
+    command: python main.py
+
+networks:
+  db:
+    driver: bridge
+  bot:
+    driver: bridge
